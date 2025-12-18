@@ -45,8 +45,7 @@ def build_operator_pack(
             flags.append("low_congruence")
         anchor_coverage = profile.get("anchor_coverage", 0)
         anchor_garbage = profile.get("anchor_garbage_rate", 0)
-        anchor_consensus = profile.get("anchor_consensus_max", 0)
-        if anchor_coverage < config.min_anchor_coverage or anchor_consensus < 0.05:
+        if anchor_coverage < config.min_anchor_coverage or anchor_garbage > config.max_anchor_garbage:
             flags.append("low_anchor_coverage")
         recommended = _recommended_action(flags)
         index_rows.append(
@@ -60,7 +59,6 @@ def build_operator_pack(
                 "keyword_congruence_score": profile.get("keyword_congruence", 0),
                 "anchor_coverage": anchor_coverage,
                 "anchor_garbage_rate": anchor_garbage,
-                "anchor_consensus_max": anchor_consensus,
                 "flags": ";".join(flags),
                 "recommended_action": recommended,
             }
@@ -72,7 +70,7 @@ def build_operator_pack(
             f"Size: {len(group)}",
             f"Coherence: {profile.get('coherence', 0):.3f}",
             f"Strength median/IQR: {strengths.median():.3f} / {(strengths.quantile(0.75) - strengths.quantile(0.25)):.3f}",
-            f"Anchor coverage: {anchor_coverage:.2f} (consensus max {anchor_consensus:.2f})",
+            f"Anchor coverage: {anchor_coverage:.2f} (garbage {anchor_garbage:.2f})",
         ]
         card_lines.append("\n## What it's about")
         card_lines.append("### Description keywords")
@@ -83,7 +81,7 @@ def build_operator_pack(
             card_lines.append(f"- {kw} ({score:.3f})")
 
         card_lines.append("\n## Entities/Anchors (typed)")
-        if anchor_coverage >= config.min_anchor_coverage and anchor_consensus >= 0.05:
+        if anchor_coverage >= config.min_anchor_coverage and anchor_garbage <= config.max_anchor_garbage:
             for ent_type, anchors in profile.get("anchors_by_type", {}).items():
                 card_lines.append(f"- **{ent_type}**")
                 for anchor in anchors:

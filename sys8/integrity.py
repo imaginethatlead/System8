@@ -69,6 +69,13 @@ def run_integrity(
         gate_failures.append("Gate1: universe hash mismatch")
     if sample_video_rate < 0.9:
         gate_failures.append("Gate2: sample video ids invalid")
+    if ner_coverage < 0.9:
+        gate_failures.append("Gate3: NER join coverage low")
+    anchor_flags = [
+        p for p in profiles if p["anchor_coverage"] < config.min_anchor_coverage or p["anchor_garbage_rate"] > config.max_anchor_garbage
+    ]
+    if anchor_flags:
+        gate_failures.append("Gate4: anchor quality low")
     if gate_failures:
         run_status = "INVALID_FOR_OPERATOR_REVIEW"
     manifest["run_status"] = run_status

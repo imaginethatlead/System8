@@ -33,14 +33,14 @@ def noise_report(evidence: pd.DataFrame, config: Sys8Config) -> None:
     removed_counts = collections.Counter()
     platform_tags = collections.Counter()
     kept_tokens = collections.Counter()
-    for removed in evidence.get("noise_hits", []):
-        for tok in removed or []:
-            removed_counts[tok] += 1
-            if tok in noise["platform"]:
-                platform_tags[tok] += 1
     for tokens in evidence["lex_tokens"]:
         for tok in tokens:
-            kept_tokens[tok] += 1
+            if is_noise_token(tok, noise):
+                removed_counts[tok] += 1
+            else:
+                kept_tokens[tok] += 1
+            if tok in noise["platform"]:
+                platform_tags[tok] += 1
     lines = [
         "# Token noise report",
         f"Run: {config.run_id}",
@@ -58,3 +58,4 @@ def noise_report(evidence: pd.DataFrame, config: Sys8Config) -> None:
     report_path = config.output_path("sys8_token_noise_report.md")
     report_path.write_text("\n".join(lines))
     logging.info("Wrote token noise report to %s", report_path)
+

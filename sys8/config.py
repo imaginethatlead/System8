@@ -127,13 +127,7 @@ class Sys8Config:
             "--english-only",
             action="store_true",
             default=True,
-            help="Filter to English content using heuristic language detection (default on)",
-        )
-        parser.add_argument(
-            "--allow-non-english",
-            dest="english_only",
-            action="store_false",
-            help="Disable English-only filtering",
+            help="Filter to English content using heuristic language detection",
         )
         parser.add_argument(
             "--language-threshold",
@@ -200,3 +194,4 @@ class Sys8Config:
 def save_config_snapshot(config: Sys8Config) -> None:
     path = config.output_path("sys8_config_snapshot.json")
     path.write_text(config.to_json())
+

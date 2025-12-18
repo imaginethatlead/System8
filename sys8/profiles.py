@@ -39,9 +39,8 @@ def build_profiles(
     for cluster_id, group in cluster_groups:
         member_ids = group["video_id"].tolist()
         desc_texts = [prepared_map.loc[vid, "topic_text"] for vid in member_ids]
-        desc_only_texts = [prepared_map.loc[vid, "desc_only_clean"] for vid in member_ids]
         hashtag_texts = [" ".join(prepared_map.loc[vid, "hashtags_list_norm"]) for vid in member_ids]
-        keywords_desc = _top_keywords(desc_only_texts)
+        keywords_desc = _top_keywords(desc_texts)
         keywords_hashtags = _top_keywords(hashtag_texts)
         # anchors
         anchor_counter = defaultdict(Counter)
@@ -54,22 +53,21 @@ def build_profiles(
         anchors_by_type = {}
         garbage_counts = 0
         total_anchor_surfaces = 0
-        consensus_max = 0.0
         for ent_type, counter in anchor_counter.items():
             total_support = sum(counter.values())
             anchors = []
             for canon, count in counter.most_common(10):
                 coverage = count / len(member_ids)
                 total_anchor_surfaces += 1
-                consensus_max = max(consensus_max, coverage)
+                if coverage < 0.05:
+                    garbage_counts += 1
                 anchors.append(
                     {"entity": canon, "coverage": coverage, "support": count, "type": ent_type}
                 )
             anchors_by_type[ent_type] = anchors
         insufficient_pct = coherence[cluster_id]["pct_insufficient_topic"]
         anchor_coverage = len(videos_with_anchors) / len(member_ids) if member_ids else 0
-        anchor_garbage = 0.0
-        anchor_consensus = consensus_max
+        anchor_garbage = garbage_counts / total_anchor_surfaces if total_anchor_surfaces else 0
         sample_ids = member_ids[: min(20, len(member_ids))]
         keyword_congruence = 0.0
         if keywords_desc and keywords_hashtags:
@@ -88,7 +86,6 @@ def build_profiles(
             "sample_video_ids": sample_ids,
             "anchor_coverage": anchor_coverage,
             "anchor_garbage_rate": anchor_garbage,
-            "anchor_consensus_max": anchor_consensus,
             "keyword_congruence": keyword_congruence,
             "median_topic_length": float(np.median([len(t.split()) for t in desc_texts]) if desc_texts else 0),
         }

@@ -5,7 +5,7 @@ import logging
 import re
 import unicodedata
 from collections import defaultdict, Counter
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple
 
 import pandas as pd
 
@@ -13,14 +13,14 @@ from .config import Sys8Config
 from .noise import is_noise_token, load_noise_lists, normalize_token
 
 HANDLE_TAG_RE = re.compile(r"<HANDLE>@([A-Za-z0-9_.]+)</HANDLE>")
-PUNCT_RE = re.compile(r"^[\W_]+$")
-DIGIT_RE = re.compile(r"^\d+$")
+PUNCT_RE = re.compile(r"^[\\W_]+$")
+DIGIT_RE = re.compile(r"^\\d+$")
 
 
 def _canon(text: str) -> str:
     text = unicodedata.normalize("NFKC", text)
     text = text.strip()
-    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"\\s+", " ", text)
     return text
 
 
@@ -47,28 +47,21 @@ def _reject(entity: str, entity_type: str, noise: Dict[str, List[str]]) -> Tuple
     return False, ""
 
 
-def load_ner_model() -> Optional[Any]:
+def _desc_model_entities(text: str) -> List[Tuple[str, str, float]]:
     spec = importlib.util.find_spec("spacy")
     if spec is None:
-        logging.warning("spaCy not available; falling back to regex heuristics.")
-        return None
-    import spacy
-
-    try:
-        return spacy.load("en_core_web_sm")
-    except OSError:
-        nlp = spacy.blank("en")
-        if "ner" not in nlp.pipe_names:
-            nlp.add_pipe("ner")
-        return nlp
-
-
-def _desc_model_entities(text: str, nlp) -> List[Tuple[str, str, float]]:
-    if nlp is None:
         ents = []
         for match in re.finditer(r"([A-Z][a-z]+(?: [A-Z][a-z]+)*)", text):
             ents.append((match.group(1), "PERSON", 0.5))
         return ents
+    import spacy
+
+    try:
+        nlp = spacy.load("en_core_web_sm")
+    except OSError:
+        nlp = spacy.blank("en")
+        if "ner" not in nlp.pipe_names:
+            nlp.add_pipe("ner")
     doc = nlp(text)
     ents = []
     for ent in doc.ents:
@@ -82,17 +75,11 @@ def _desc_model_entities(text: str, nlp) -> List[Tuple[str, str, float]]:
             "PRODUCT": "PRODUCT",
         }.get(ent_type, None)
         if mapped:
-            try:
-                conf_val = float(ent.kb_id_) if ent.kb_id_ else 0.8
-            except Exception:
-                conf_val = 0.8
-            ents.append((ent.text, mapped, conf_val))
+            ents.append((ent.text, mapped, float(ent.kb_id_) if ent.kb_id_ else 0.8))
     return ents
 
 
-def extract_entities(
-    prepared: pd.DataFrame, config: Sys8Config, nlp=None
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def extract_entities(prepared: pd.DataFrame, config: Sys8Config) -> Tuple[pd.DataFrame, pd.DataFrame]:
     noise = load_noise_lists(config)
     mentions_rows = []
     video_entities = defaultdict(lambda: defaultdict(list))
@@ -148,8 +135,7 @@ def extract_entities(
             video_entities[video_id][entity_type].append(canon.lower())
 
         # Desc model
-        desc_plain = row.get("desc_only_clean") or ""
-        for surface, ent_type, conf in _desc_model_entities(desc_plain, nlp):
+        for surface, ent_type, conf in _desc_model_entities(ner_text):
             canon = _canon(surface)
             reject, reason = _reject(canon, ent_type, noise)
             if reject:

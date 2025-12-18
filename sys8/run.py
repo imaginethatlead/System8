@@ -9,7 +9,7 @@ from .embed import embed
 from .ingest import ingest
 from .integrity import run_integrity
 from .lexicon_scores import compute_scores
-from .ner import extract_entities, ner_report, load_ner_model
+from .ner import extract_entities, ner_report
 from .noise import noise_report
 from .operator_cards import build_operator_pack
 from .prepare_evidence import prepare_evidence
@@ -24,8 +24,7 @@ def main(argv=None) -> None:
     raw = ingest(config.input_path)
     prepared = prepare_evidence(raw, config)
     lex_scores = compute_scores(prepared, config)
-    nlp = load_ner_model()
-    mentions, entities_by_video = extract_entities(prepared, config, nlp=nlp)
+    mentions, entities_by_video = extract_entities(prepared, config)
     ner_metrics = ner_report(prepared, mentions, entities_by_video, config)
     embeddings = embed(prepared, config)
     clusters, coherence = cluster_embeddings(embeddings, prepared, config)
